@@ -123,7 +123,7 @@ class Elfdump(object):
         # Version definition section
         if verdef_section:
 
-            self._emitline("\nVersion Definition Section:  %s" % verdef_section.name)
+            self._emitline("\nVersion Definition Section:  %s" % bytes2str(verdef_section.name))
             self._emitline('     index  version                     dependency')
 
             for verdef, verdaux_iter in verdef_section.iter_versions():
@@ -145,17 +145,17 @@ class Elfdump(object):
                     flags_desc = '[ %s ]' % flags_desc
 
                 self._emitline('%10.10s  %-26.26s  %-20s %s' % (
-                    '[%i]' % verdef['vd_ndx'], verdaux.name, 
-                    dependency_name, flags_desc))
+                    '[%i]' % verdef['vd_ndx'], bytes2str(verdaux.name), 
+                    bytes2str(dependency_name), flags_desc))
 
                 for verdaux in verdaux_iter:
                     # additional dependencies are displayed one by line
-                    self._emitline('%47s  %s' % ('', verdaux.name))
+                    self._emitline('%47s  %s' % ('', bytes2str(verdaux.name)))
 
         # Version dependency section
         if verneed_section:
 
-            self._emitline("\nVersion Needed Section:  %s" % verneed_section.name)
+            self._emitline("\nVersion Needed Section:  %s" % bytes2str(verneed_section.name))
 
             if verneed_section.has_indexes():
                 self._emitline('     index  file                        version')
@@ -178,7 +178,8 @@ class Elfdump(object):
                         index = ''
 
                     self._emitline('%10.10s  %-26.26s  %-20s %s' % (
-                        index, filename, vernaux.name, flags_desc))
+                        index, bytes2str(filename), bytes2str(vernaux.name),
+                        flags_desc))
 
                     # we only display the filename for the first version name
                     # related to this file
@@ -196,7 +197,7 @@ class Elfdump(object):
 
         if syminfo_section:
             # The symbol table section pointed to in sh_link
-            dyntable = self.elffile.get_section_by_name('.dynamic')
+            dyntable = self.elffile.get_section_by_name(b'.dynamic')
 
             if section['sh_entsize'] == 0:
                 self._emitline("\nSymbol table '%s' has a sh_entsize of zero!" % (
