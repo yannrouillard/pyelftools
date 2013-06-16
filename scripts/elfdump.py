@@ -1,5 +1,5 @@
 #!/opt/csw/bin/python
-#-------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 # scripts/elfdump.py
 #
 # A clone of 'elfdump' in Python, based on the pyelftools library
@@ -7,8 +7,9 @@
 # Eli Bendersky (eliben@gmail.com)
 # Yann Rouillard (yann@pleiades.fr.eu.org)
 # This code is in the public domain
-#-------------------------------------------------------------------------------
-import os, sys
+#------------------------------------------------------------------------------
+import os
+import sys
 from optparse import OptionParser
 import string
 
@@ -20,38 +21,36 @@ sys.path.insert(0, '.')
 from elftools import __version__
 from elftools.common.exceptions import ELFError
 from elftools.common.py3compat import (
-        ifilter, byte2int, bytes2str, itervalues, str2bytes)
+    ifilter, byte2int, bytes2str, itervalues, str2bytes)
 from elftools.elf.elffile import ELFFile
 from elftools.elf.dynamic import DynamicSection, DynamicSegment
 from elftools.elf.enums import ENUM_D_TAG
 from elftools.elf.constants import SUNW_SYMINFO_FLAGS
 from elftools.elf.segments import InterpSegment
 from elftools.elf.sections import (
-        SymbolTableSection, SUNWSyminfoTableSection)
+    SymbolTableSection, SUNWSyminfoTableSection)
 from elftools.elf.gnuversions import (
-        GNUVerNeedSection, GNUVerDefSection, GNUVerSymSection)
+    GNUVerNeedSection, GNUVerDefSection, GNUVerSymSection)
 from elftools.elf.relocation import RelocationSection
 from elftools.elf.descriptions import (
     describe_ei_class, describe_ei_data, describe_ei_version,
     describe_ei_osabi, describe_e_type, describe_e_machine,
     describe_e_version_numeric, describe_p_type, describe_p_flags,
     describe_sh_type, describe_sh_flags,
-    describe_symbol_bind, 
+    describe_symbol_bind,
     describe_symbol_shndx, describe_reloc_type, describe_dyn_tag,
-    describe_syminfo_flags, describe_symbol_boundto, describe_ver_flags,
-    )
+    describe_syminfo_flags, describe_symbol_boundto, describe_ver_flags)
 from elftools.dwarf.dwarfinfo import DWARFInfo
 from elftools.dwarf.descriptions import (
     describe_reg_name, describe_attr_value, set_global_machine_arch,
     describe_CFI_instructions, describe_CFI_register_rule,
-    describe_CFI_CFA_rule,
-    )
+    describe_CFI_CFA_rule)
 from elftools.dwarf.constants import (
     DW_LNS_copy, DW_LNS_set_file, DW_LNE_define_file)
 from elftools.dwarf.callframe import CIE, FDE
 
 
-# We define our own description functions as elfdump doesn't 
+# We define our own description functions as elfdump doesn't
 # display the symbol informations like readelf does
 
 _DESCR_ST_INFO_TYPE = dict(
@@ -83,14 +82,18 @@ _DESCR_ST_SHNDX = dict(
     SHN_COMMON='COMMON',
 )
 
+
 def _describe_symbol_type(x):
     return _DESCR_ST_INFO_TYPE.get(x, "")
+
 
 def _describe_symbol_bind(x):
     return _DESCR_ST_INFO_BIND.get(x, "")
 
+
 def _describe_symbol_visibility(x):
     return _DESCR_ST_VISIBILITY.get(x, "")
+
 
 def _describe_symbol_shndx(x):
     return _DESCR_ST_SHNDX.get(x, x)
@@ -123,18 +126,21 @@ class Elfdump(object):
         # Version definition section
         if verdef_section:
 
-            self._emitline("\nVersion Definition Section:  %s" % bytes2str(verdef_section.name))
-            self._emitline('     index  version                     dependency')
+            self._emitline("\nVersion Definition Section:  %s" %
+                           bytes2str(verdef_section.name))
+            self._emitline(
+                '     index  version                     dependency')
 
             for verdef, verdaux_iter in verdef_section.iter_versions():
 
-                # The first verdaux entry is mandatory, it contains the version name
-                # of the current version definition
+                # The first verdaux entry is mandatory, it contains the version
+                # name of the current version definition
                 verdaux = next(verdaux_iter)
-    
+
                 if verdef['vd_cnt'] > 1:
-                    # Additional verdaux entries are dependencies of the current version
-                    # the first one is displayed on the same line
+                    # Additional verdaux entries are dependencies of the
+                    # current version the first one is displayed on the
+                    # same line
                     dependency = next(verdaux_iter)
                     dependency_name = dependency.name
                 else:
@@ -145,7 +151,7 @@ class Elfdump(object):
                     flags_desc = '[ %s ]' % flags_desc
 
                 self._emitline('%10.10s  %-26.26s  %-20s %s' % (
-                    '[%i]' % verdef['vd_ndx'], bytes2str(verdaux.name), 
+                    '[%i]' % verdef['vd_ndx'], bytes2str(verdaux.name),
                     bytes2str(dependency_name), flags_desc))
 
                 for verdaux in verdaux_iter:
@@ -155,16 +161,19 @@ class Elfdump(object):
         # Version dependency section
         if verneed_section:
 
-            self._emitline("\nVersion Needed Section:  %s" % bytes2str(verneed_section.name))
+            self._emitline("\nVersion Needed Section:  %s" %
+                           bytes2str(verneed_section.name))
 
             if verneed_section.has_indexes():
-                self._emitline('     index  file                        version')
+                self._emitline(
+                    '     index  file                        version')
             else:
-                self._emitline('            file                        version')
+                self._emitline(
+                    '            file                        version')
 
             for verneed, vernaux_iter in verneed_section.iter_versions():
 
-                filename = verneed.name                    
+                filename = verneed.name
 
                 for vernaux in vernaux_iter:
 
@@ -185,30 +194,31 @@ class Elfdump(object):
                     # related to this file
                     filename = ''
 
-
     def display_syminfo_table(self):
         """ Display the SUNW syminfo tables contained in the file
         """
         syminfo_section = None
         for section in self.elffile.iter_sections():
             if isinstance(section, SUNWSyminfoTableSection):
-               syminfo_section = section
-               break
+                syminfo_section = section
+                break
 
         if syminfo_section:
             # The symbol table section pointed to in sh_link
             dyntable = self.elffile.get_section_by_name(b'.dynamic')
 
             if section['sh_entsize'] == 0:
-                self._emitline("\nSymbol table '%s' has a sh_entsize of zero!" % (
-                    bytes2str(section.name)))
+                self._emitline(
+                    "\nSymbol table '%s' has a sh_entsize of zero!" %
+                    (bytes2str(section.name)))
                 return
 
             # The symbol table section pointed to in sh_link
             symtable = self.elffile.get_section(section['sh_link'])
 
             self._emitline("\nSyminfo Section:  %s" % bytes2str(section.name))
-            self._emitline('     index  flags            bound to                 symbol')
+            self._emitline(
+                '     index  flags            bound to                 symbol')
 
             for nsym, syminfo in enumerate(section.iter_symbols(), start=1):
 
@@ -222,7 +232,8 @@ class Elfdump(object):
                     boundto = describe_symbol_boundto(syminfo['si_boundto'])
                 else:
                     dyn_tag = dyntable.get_tag(syminfo['si_boundto'])
-                    if syminfo['si_flags'] & SUNW_SYMINFO_FLAGS.SYMINFO_FLG_FILTER:
+                    if (syminfo['si_flags'] &
+                            SUNW_SYMINFO_FLAGS.SYMINFO_FLG_FILTER):
                         boundto = bytes2str(dyn_tag.sunw_filter)
                     else:
                         boundto = bytes2str(dyn_tag.needed)
@@ -236,12 +247,11 @@ class Elfdump(object):
                     boundto,
                     bytes2str(syminfo.name)))
 
-
     def display_symbol_tables(self):
         """ Display the symbol tables contained in the file
         """
 
-        # we first look for the versym section to be able to display 
+        # we first look for the versym section to be able to display
         # version index for the associated symbol table
         versym_section = None
         for section in self.elffile.iter_sections():
@@ -254,21 +264,27 @@ class Elfdump(object):
             if isinstance(section, SymbolTableSection):
 
                 if section['sh_entsize'] == 0:
-                    self._emitline("\nSymbol table '%s' has a sh_entsize of zero!" % (
+                    self._emitline(
+                        "\nSymbol table '%s' has a sh_entsize of zero!" % (
                         bytes2str(section.name)))
                     return
 
-                # we only print symbol version index if the versym section 
+                # we only print symbol version index if the versym section
                 # exists and if it refers to the current section
                 versioning = (versym_section and section == linked_section)
 
-                self._emitline("\nSymbol Table Section:  %s" % bytes2str(section.name))
-                self._emitline('     index    value      size      type bind oth ver shndx          name')
+                self._emitline(
+                    "\nSymbol Table Section:  %s" % bytes2str(section.name))
+                self._emitline(
+                    'index    value      size      type bind oth ver shndx'
+                    '          name')
 
                 if self.elffile.elfclass == 32:
-                    symbol_entry_format = '%10.10s  0x%8.8x 0x%8.8x  %4s %4s %2s %4s %-14.14s %s'
+                    symbol_entry_format = ('%10.10s  0x%8.8x 0x%8.8x'
+                                           '  %4s %4s %2s %4s %-14.14s %s')
                 else:
-                    symbol_entry_format = '%10.10s  0x%16.16x 0x%16.16x  %4s %4s %2s %4s %-14.14s %s'
+                    symbol_entry_format = ('%10.10s  0x%16.16x 0x%16.16x'
+                                           '  %4s %4s %2s %4s %-14.14s %s')
 
                 for nsym, symbol in enumerate(section.iter_symbols()):
                     index_str = '[%i]' % nsym
@@ -292,7 +308,8 @@ class Elfdump(object):
                         index_str, symbol['st_value'], symbol['st_size'],
                         _describe_symbol_type(symbol['st_info']['type']),
                         _describe_symbol_bind(symbol['st_info']['bind']),
-                        _describe_symbol_visibility(symbol['st_other']['visibility']),
+                        _describe_symbol_visibility(
+                            symbol['st_other']['visibility']),
                         version_index, shndx, bytes2str(symbol.name)))
 
     def _emit(self, s=''):
@@ -313,23 +330,24 @@ VERSION_STRING = '%%prog: based on pyelftools %s' % __version__
 def main(stream=None):
     # parse the command-line arguments and invoke ReadElf
     optparser = OptionParser(
-            usage='usage: %prog [options] <elf-file>',
-            description=SCRIPT_DESCRIPTION,
-            add_help_option=False,  # -h is a real option of readelf
-            prog='elfdump.py',
-            version=VERSION_STRING)
+        usage='usage: %prog [options] <elf-file>',
+        description=SCRIPT_DESCRIPTION,
+        add_help_option=False,  # -h is a real option of readelf
+        prog='elfdump.py',
+        version=VERSION_STRING)
     optparser.add_option('--help',
-            action='store_true', dest='help',
-            help='Display this information')
+                         action='store_true', dest='help',
+                         help='Display this information')
     optparser.add_option('-s',
-            action='store_true', dest='show_symbols',
-            help='dump the contents of the  .SUNW_ldynsym, .dynsym and .symtab symbol table sections.')
+                         action='store_true', dest='show_symbols',
+                         help='dump the contents of the  .SUNW_ldynsym,'
+                              ' .dynsym and .symtab symbol table sections.')
     optparser.add_option('-y',
-            action='store_true', dest='show_syminfo',
-            help='dump the contents of the .SUNW_syminfo section')
+                         action='store_true', dest='show_syminfo',
+                         help='dump the contents of the .SUNW_syminfo section')
     optparser.add_option('-v',
-            action='store_true', dest='show_version',
-            help='dump the contents of the version sections')
+                         action='store_true', dest='show_version',
+                         help='dump the contents of the version sections')
 
     options, args = optparser.parse_args()
 
@@ -364,7 +382,7 @@ def profile_main():
     p.sort_stats('cumulative').print_stats(25)
 
 
-#-------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
 if __name__ == '__main__':
     main()
     #profile_main()
