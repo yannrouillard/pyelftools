@@ -20,34 +20,15 @@ sys.path.insert(0, '.')
 
 from elftools import __version__
 from elftools.common.exceptions import ELFError
-from elftools.common.py3compat import (
-    ifilter, byte2int, bytes2str, itervalues, str2bytes)
+from elftools.common.py3compat import bytes2str
 from elftools.elf.elffile import ELFFile
-from elftools.elf.dynamic import DynamicSection, DynamicSegment
-from elftools.elf.enums import ENUM_D_TAG
 from elftools.elf.constants import SUNW_SYMINFO_FLAGS
-from elftools.elf.segments import InterpSegment
 from elftools.elf.sections import (
     SymbolTableSection, SUNWSyminfoTableSection)
 from elftools.elf.gnuversions import (
     GNUVerNeedSection, GNUVerDefSection, GNUVerSymSection)
-from elftools.elf.relocation import RelocationSection
 from elftools.elf.descriptions import (
-    describe_ei_class, describe_ei_data, describe_ei_version,
-    describe_ei_osabi, describe_e_type, describe_e_machine,
-    describe_e_version_numeric, describe_p_type, describe_p_flags,
-    describe_sh_type, describe_sh_flags,
-    describe_symbol_bind,
-    describe_symbol_shndx, describe_reloc_type, describe_dyn_tag,
     describe_syminfo_flags, describe_symbol_boundto, describe_ver_flags)
-from elftools.dwarf.dwarfinfo import DWARFInfo
-from elftools.dwarf.descriptions import (
-    describe_reg_name, describe_attr_value, set_global_machine_arch,
-    describe_CFI_instructions, describe_CFI_register_rule,
-    describe_CFI_CFA_rule)
-from elftools.dwarf.constants import (
-    DW_LNS_copy, DW_LNS_set_file, DW_LNE_define_file)
-from elftools.dwarf.callframe import CIE, FDE
 
 
 # We define our own description functions as elfdump doesn't
