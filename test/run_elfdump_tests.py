@@ -42,7 +42,7 @@ def run_test_on_file(filename, verbose=False):
     success = True
     testlog.info("Test file '%s'" % filename)
     for option in [
-            '-y', '-v']:
+            '-y', '-v', '-s']:
         if verbose: testlog.info("..option='%s'" % option)
         # stdouts will be a 2-element list: output of elfdump and output
         # of scripts/elfdump.py

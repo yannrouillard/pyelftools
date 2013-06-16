@@ -26,16 +26,17 @@ from elftools.elf.dynamic import DynamicSection, DynamicSegment
 from elftools.elf.enums import ENUM_D_TAG
 from elftools.elf.constants import SUNW_SYMINFO_FLAGS
 from elftools.elf.segments import InterpSegment
-from elftools.elf.sections import SUNWSyminfoTableSection
+from elftools.elf.sections import (
+        SymbolTableSection, SUNWSyminfoTableSection)
 from elftools.elf.gnuversions import (
-        GNUVerNeedSection, GNUVerDefSection)
+        GNUVerNeedSection, GNUVerDefSection, GNUVerSymSection)
 from elftools.elf.relocation import RelocationSection
 from elftools.elf.descriptions import (
     describe_ei_class, describe_ei_data, describe_ei_version,
     describe_ei_osabi, describe_e_type, describe_e_machine,
     describe_e_version_numeric, describe_p_type, describe_p_flags,
     describe_sh_type, describe_sh_flags,
-    describe_symbol_type, describe_symbol_bind, describe_symbol_visibility,
+    describe_symbol_bind, 
     describe_symbol_shndx, describe_reloc_type, describe_dyn_tag,
     describe_syminfo_flags, describe_symbol_boundto, describe_ver_flags,
     )
@@ -48,6 +49,51 @@ from elftools.dwarf.descriptions import (
 from elftools.dwarf.constants import (
     DW_LNS_copy, DW_LNS_set_file, DW_LNE_define_file)
 from elftools.dwarf.callframe import CIE, FDE
+
+
+# We define our own description functions as elfdump doesn't 
+# display the symbol informations like readelf does
+
+_DESCR_ST_INFO_TYPE = dict(
+    STT_NOTYPE='NOTY',
+    STT_OBJECT='OBJT',
+    STT_FUNC='FUNC',
+    STT_SECTION='SECT',
+    STT_FILE='FILE',
+    STT_COMMON='COMMON',
+    STT_TLS='TLS',
+)
+
+_DESCR_ST_INFO_BIND = dict(
+    STB_LOCAL='LOCL',
+    STB_GLOBAL='GLOB',
+    STB_WEAK='WEAK',
+)
+
+_DESCR_ST_VISIBILITY = dict(
+    STV_DEFAULT='D',
+    STV_INTERNAL='I',
+    STV_HIDDEN='H',
+    STV_PROTECTED='P',
+)
+
+_DESCR_ST_SHNDX = dict(
+    SHN_UNDEF='UNDEF',
+    SHN_ABS='ABS',
+    SHN_COMMON='COMMON',
+)
+
+def _describe_symbol_type(x):
+    return _DESCR_ST_INFO_TYPE.get(x, "")
+
+def _describe_symbol_bind(x):
+    return _DESCR_ST_INFO_BIND.get(x, "")
+
+def _describe_symbol_visibility(x):
+    return _DESCR_ST_VISIBILITY.get(x, "")
+
+def _describe_symbol_shndx(x):
+    return _DESCR_ST_SHNDX.get(x, x)
 
 
 class Elfdump(object):
@@ -189,6 +235,65 @@ class Elfdump(object):
                     boundto,
                     bytes2str(syminfo.name)))
 
+
+    def display_symbol_tables(self):
+        """ Display the symbol tables contained in the file
+        """
+
+        # we first look for the versym section to be able to display 
+        # version index for the associated symbol table
+        versym_section = None
+        for section in self.elffile.iter_sections():
+            if isinstance(section, GNUVerSymSection):
+                versym_section = section
+                linked_section = self.elffile.get_section(section['sh_link'])
+                break
+
+        for section in self.elffile.iter_sections():
+            if isinstance(section, SymbolTableSection):
+
+                if section['sh_entsize'] == 0:
+                    self._emitline("\nSymbol table '%s' has a sh_entsize of zero!" % (
+                        bytes2str(section.name)))
+                    return
+
+                # we only print symbol version index if the versym section 
+                # exists and if it refers to the current section
+                versioning = (versym_section and section == linked_section)
+
+                self._emitline("\nSymbol Table Section:  %s" % bytes2str(section.name))
+                self._emitline('     index    value      size      type bind oth ver shndx          name')
+
+                if self.elffile.elfclass == 32:
+                    symbol_entry_format = '%10.10s  0x%8.8x 0x%8.8x  %4s %4s %2s %4s %-14.14s %s'
+                else:
+                    symbol_entry_format = '%10.10s  0x%16.16x 0x%16.16x  %4s %4s %2s %4s %-14.14s %s'
+
+                for nsym, symbol in enumerate(section.iter_symbols()):
+                    index_str = '[%i]' % nsym
+
+                    shndx = symbol['st_shndx']
+                    if isinstance(shndx, str):
+                        shndx = _describe_symbol_shndx(shndx)
+                    else:
+                        shndx = bytes2str(self.elffile.get_section(shndx).name)
+
+                    if versioning:
+                        version_index = versym_section.get_symbol(nsym)['ndx']
+                        if version_index == 'VER_NDX_LOCAL':
+                            version_index = 0
+                        elif version_index == 'VER_NDX_GLOBAL':
+                            version_index = 1
+                    else:
+                        version_index = 0
+
+                    self._emitline(symbol_entry_format % (
+                        index_str, symbol['st_value'], symbol['st_size'],
+                        _describe_symbol_type(symbol['st_info']['type']),
+                        _describe_symbol_bind(symbol['st_info']['bind']),
+                        _describe_symbol_visibility(symbol['st_other']['visibility']),
+                        version_index, shndx, bytes2str(symbol.name)))
+
     def _emit(self, s=''):
         """ Emit an object to output
         """
@@ -215,6 +320,9 @@ def main(stream=None):
     optparser.add_option('--help',
             action='store_true', dest='help',
             help='Display this information')
+    optparser.add_option('-s',
+            action='store_true', dest='show_symbols',
+            help='dump the contents of the  .SUNW_ldynsym, .dynsym and .symtab symbol table sections.')
     optparser.add_option('-y',
             action='store_true', dest='show_syminfo',
             help='dump the contents of the .SUNW_syminfo section')
@@ -233,6 +341,8 @@ def main(stream=None):
             readelf = Elfdump(file, stream or sys.stdout)
             if options.show_version:
                 readelf.display_version_tables()
+            if options.show_symbols:
+                readelf.display_symbol_tables()
             if options.show_syminfo:
                 readelf.display_syminfo_table()
         except ELFError as ex:
