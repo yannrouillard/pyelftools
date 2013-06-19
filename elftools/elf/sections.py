@@ -224,6 +224,12 @@ class SUNWSymbolSortSection(Section):
 
         return None
 
+    def iter_symbol_indexes(self):
+        """ Yield all the indexes in the section
+        """
+        for i in range(self.num_symbols()):
+            yield self.get_symbol_index(i)
+
     def iter_symbols(self):
         """ Yield all the symbols referenced in the sort section
         """
