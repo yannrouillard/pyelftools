@@ -185,7 +185,7 @@ class Elfdump(object):
 
                     # we only display the filename for the first version name
                     # related to this file
-                    filename = ''
+                    filename = b''
 
     def display_syminfo_table(self):
         """ Display the SUNW syminfo tables contained in the file
