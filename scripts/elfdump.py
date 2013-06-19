@@ -24,7 +24,7 @@ from elftools.common.py3compat import bytes2str
 from elftools.elf.elffile import ELFFile
 from elftools.elf.constants import SUNW_SYMINFO_FLAGS
 from elftools.elf.sections import (
-    SymbolTableSection, SUNWSyminfoTableSection)
+    SymbolTableSection, SUNWSyminfoTableSection, SUNWSymbolSortSection)
 from elftools.elf.gnuversions import (
     GNUVerNeedSection, GNUVerDefSection, GNUVerSymSection)
 from elftools.elf.descriptions import (
@@ -308,7 +308,47 @@ class Elfdump(object):
 
                 self._emit_symbol(nsym, symbol, version_index)
 
+    def display_sort_index_sections(self):
 
+        symbol_sort_sections = self._find_sections(SUNWSymbolSortSection)
+        if not symbol_sort_sections:
+            return
+
+        for section in symbol_sort_sections:
+
+            if section['sh_entsize'] == 0:
+                self._emitline(
+                    "\nSymbol sort index section '%s' "
+                    "has a sh_entsize of zero!" % (bytes2str(section.name)))
+                return
+
+            # we first look for the versym section and the SUNW_ldynsym section
+            # to be able to correctly display the version index of each symbol
+            versym_section = self._find_section(GNUVerSymSection)
+            ldynsym_section = self.elffile.get_section_by_name('.SUNW_ldynsym')
+            if ldynsym_section:
+                num_local_symbols = ldynsym_section.num_symbols()
+            else:
+                num_local_symbols = 0
+
+            self._emitline(
+                "\nSymbol Sort Section:  %s (.SUNW_ldynsym / .dynsym)" %
+                bytes2str(section.name))
+            self._emitline(
+                '     index    value              size              type'
+                ' bind oth ver shndx          name')
+
+            for index in range(section.num_symbols()):
+                real_index = section.get_symbol_index(index)
+                symbol = section.get_symbol(index)
+
+                if versym_section and real_index > num_local_symbols:
+                    nsym = real_index - num_local_symbols
+                    version_index = versym_section.get_symbol(nsym)['ndx']
+                else:
+                    version_index = 0
+
+                self._emit_symbol(real_index, symbol, version_index)
 
     def _emit(self, s=''):
         """ Emit an object to output
@@ -340,6 +380,9 @@ def main(stream=None):
                          action='store_true', dest='show_symbols',
                          help='dump the contents of the  .SUNW_ldynsym,'
                               ' .dynsym and .symtab symbol table sections.')
+    optparser.add_option('-S',
+                         action='store_true', dest='show_sortedsymbols',
+                         help='dump the contents of the sort index sections')
     optparser.add_option('-y',
                          action='store_true', dest='show_syminfo',
                          help='dump the contents of the .SUNW_syminfo section')
@@ -362,6 +405,8 @@ def main(stream=None):
                 readelf.display_symbol_tables()
             if options.show_syminfo:
                 readelf.display_syminfo_table()
+            if options.show_sortedsymbols:
+                readelf.display_sort_index_sections()
         except ELFError as ex:
             sys.stderr.write('ELF error: %s\n' % ex)
             sys.exit(1)
