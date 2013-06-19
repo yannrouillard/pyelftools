@@ -169,8 +169,8 @@ class SUNWSymbolSortSection(Section):
         self.elffile = elffile
         self.elfstructs = self.elffile.structs
         self.stringtable = stringtable
-        self._dynsym_section = elffile.get_section_by_name('.dynsym')
-        self._ldynsym_section = elffile.get_section_by_name('.SUNW_ldynsym')
+        self._dynsym_section = elffile.get_section_by_name(b'.dynsym')
+        self._ldynsym_section = elffile.get_section_by_name(b'.SUNW_ldynsym')
         self._num_local_symbols = self._ldynsym_section.num_symbols()
 
     def num_symbols(self):

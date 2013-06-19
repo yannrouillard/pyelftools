@@ -54,9 +54,9 @@ class TestSolarisSupport(unittest.TestCase):
     def test_SUNW_syminfo_section_sparc64(self):
         self._test_SUNW_syminfo_section_generic('exe_solaris64_cc.elf.sparc')
 
-    ldsynsym_reference_data = ['', 'exe_solaris32.elf', 'crti.s', 'crt1.o',
-                               'crt1.s', 'fsr.s', 'values-Xa.c',
-                               'exe_solaris64.elf.c', 'crtn.s']
+    ldsynsym_reference_data = [b'', b'exe_solaris32.elf', b'crti.s', b'crt1.o',
+                               b'crt1.s', b'fsr.s', b'values-Xa.c',
+                               b'exe_solaris64.elf.c', b'crtn.s']
 
     def _test_SUNW_ldynsym_section_generic(self, testfile, reference_data):
         with open(os.path.join('test', 'testfiles_for_unittests',
@@ -78,46 +78,46 @@ class TestSolarisSupport(unittest.TestCase):
     def test_SUNW_ldynsym_section_x64(self):
         reference_data = copy.deepcopy(
             TestSolarisSupport.ldsynsym_reference_data)
-        reference_data[1] = 'exe_solaris64.elf'
-        reference_data[3] = 'crt1x.o'
-        reference_data[5] = 'fsrx.s'
+        reference_data[1] = b'exe_solaris64.elf'
+        reference_data[3] = b'crt1x.o'
+        reference_data[5] = b'fsrx.s'
         self._test_SUNW_ldynsym_section_generic('exe_solaris64_cc.elf',
                                                 reference_data)
 
     dynsymsort_reference_data_32 = (
-        (12, 0x0805087c, '_PROCEDURE_LINKAGE_TABLE_'),
-        (29, 0x080508d0, '_start'),
-        (27, 0x08050948, '__fsr'),
-        (19, 0x080509e0, 'main'),
-        (17, 0x08050a00, '_init'),
-        (31, 0x08050a1c, '_fini'),
-        (23, 0x08050a38, '_lib_version'),
-        (21, 0x08060a3c, '_GLOBAL_OFFSET_TABLE_'),
-        (13, 0x08060a58, '_DYNAMIC'),
-        (11, 0x08060bb0, 'environ'),
-        (32, 0x08060bb4, '__environ_lock'),
-        (14, 0x08060bcc, '___Argv'),
-        (10, 0x08060bd0, '__xargc'),
-        (22, 0x08060bd4, '__xargv'),
-        (33, 0x08060bd8, '__longdouble_used'),
-        (30, 0x08060bfc, '_end'))
+        (12, 0x0805087c, b'_PROCEDURE_LINKAGE_TABLE_'),
+        (29, 0x080508d0, b'_start'),
+        (27, 0x08050948, b'__fsr'),
+        (19, 0x080509e0, b'main'),
+        (17, 0x08050a00, b'_init'),
+        (31, 0x08050a1c, b'_fini'),
+        (23, 0x08050a38, b'_lib_version'),
+        (21, 0x08060a3c, b'_GLOBAL_OFFSET_TABLE_'),
+        (13, 0x08060a58, b'_DYNAMIC'),
+        (11, 0x08060bb0, b'environ'),
+        (32, 0x08060bb4, b'__environ_lock'),
+        (14, 0x08060bcc, b'___Argv'),
+        (10, 0x08060bd0, b'__xargc'),
+        (22, 0x08060bd4, b'__xargv'),
+        (33, 0x08060bd8, b'__longdouble_used'),
+        (30, 0x08060bfc, b'_end'))
 
     dynsymsort_reference_data_64 = (
-        (12, 0x0000000000400a80, '_PROCEDURE_LINKAGE_TABLE_'),
-        (26, 0x0000000000400ac0, '_start'),
-        (23, 0x0000000000400b4d, '__fsr'),
-        (31, 0x0000000000400cb0, 'main'),
-        (24, 0x0000000000400ce0, '_init'),
-        (25, 0x0000000000400d08, '_fini'),
-        (29, 0x0000000000400d2c, '_lib_version'),
-        (15, 0x0000000000410d60, '_DYNAMIC'),
-        (17, 0x0000000000411010, 'environ'),
-        (28, 0x0000000000411018, '__environ_lock'),
-        (30, 0x0000000000411030, '___Argv'),
-        (19, 0x0000000000411038, '__xargv'),
-        (18, 0x0000000000411040, '__xargc'),
-        (16, 0x0000000000411044, '__longdouble_used'),
-        (14, 0x0000000000411068, '_end'))
+        (12, 0x0000000000400a80, b'_PROCEDURE_LINKAGE_TABLE_'),
+        (26, 0x0000000000400ac0, b'_start'),
+        (23, 0x0000000000400b4d, b'__fsr'),
+        (31, 0x0000000000400cb0, b'main'),
+        (24, 0x0000000000400ce0, b'_init'),
+        (25, 0x0000000000400d08, b'_fini'),
+        (29, 0x0000000000400d2c, b'_lib_version'),
+        (15, 0x0000000000410d60, b'_DYNAMIC'),
+        (17, 0x0000000000411010, b'environ'),
+        (28, 0x0000000000411018, b'__environ_lock'),
+        (30, 0x0000000000411030, b'___Argv'),
+        (19, 0x0000000000411038, b'__xargv'),
+        (18, 0x0000000000411040, b'__xargc'),
+        (16, 0x0000000000411044, b'__longdouble_used'),
+        (14, 0x0000000000411068, b'_end'))
 
     def _test_SymbolSort_section_generic(self, testfile, reference_data):
         with open(os.path.join('test', 'testfiles_for_unittests',
