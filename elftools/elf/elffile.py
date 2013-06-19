@@ -13,7 +13,7 @@ from ..construct import ConstructError
 from .structs import ELFStructs
 from .sections import (
         Section, StringTableSection, SymbolTableSection,
-        SUNWSyminfoTableSection, NullSection)
+        SUNWSyminfoTableSection, SUNWSymbolSortSection, NullSection)
 from .dynamic import DynamicSection, DynamicSegment
 from .relocation import RelocationSection, RelocationHandler
 from .gnuversions import (
@@ -253,6 +253,8 @@ class ELFFile(object):
             return self._make_symbol_table_section(section_header, name)
         elif sectype == 'SHT_SUNW_syminfo':
             return self._make_sunwsyminfo_table_section(section_header, name)
+        elif sectype in ('SHT_SUNW_symsort', 'SHT_SUNW_tlssort'):
+            return self._make_sunwsymbolsort_section(section_header, name)
         elif sectype == 'SHT_GNU_verneed':
             return self._make_gnu_verneed_section(section_header, name)
         elif sectype == 'SHT_GNU_verdef':
@@ -286,6 +288,16 @@ class ELFFile(object):
             section_header, name, self.stream,
             elffile=self,
             symboltable=strtab_section)
+
+    def _make_sunwsymbolsort_section(self, section_header, name):
+        """ Create a SUNWSymbolSortSection
+        """
+        linked_strtab_index = section_header['sh_link']
+        strtab_section = self.get_section(linked_strtab_index)
+        return SUNWSymbolSortSection(
+            section_header, name, self.stream,
+            elffile=self,
+            stringtable=strtab_section)
 
     def _make_gnu_verneed_section(self, section_header, name):
         """ Create a GNUVerNeedSection

@@ -74,6 +74,7 @@ class ELFStructs(object):
         self._create_rel()
         self._create_dyn()
         self._create_sunw_syminfo()
+        self._create_sunw_sortindex()
         self._create_gnu_verneed()
         self._create_gnu_verdef()
         self._create_gnu_versym()
@@ -211,6 +212,11 @@ class ELFStructs(object):
         self.Elf_Sunw_Syminfo = Struct('Elf_Sunw_Syminfo',
             Enum(self.Elf_half('si_boundto'), **ENUM_SUNW_SYMINFO_BOUNDTO),
             self.Elf_half('si_flags'),
+        )
+
+    def _create_sunw_sortindex(self):
+        self.Elf_Sunw_SortIndex = Struct('Elf_Sunw_SortIndex',
+            self.Elf_word('ndx')
         )
 
     def _create_gnu_verneed(self):

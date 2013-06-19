@@ -158,3 +158,74 @@ class SUNWSyminfoTableSection(Section):
         """
         for i in range(1, self.num_symbols() + 1):
             yield self.get_symbol(i)
+
+
+class SUNWSymbolSortSection(Section):
+    """ ELF .SUNW_dynsymsort or .SUNW_dyntlssort section
+        Has an associated StringTableSection that's passed in the constructor.
+    """
+    def __init__(self, header, name, stream, elffile, stringtable):
+        super(SUNWSymbolSortSection, self).__init__(header, name, stream)
+        self.elffile = elffile
+        self.elfstructs = self.elffile.structs
+        self.stringtable = stringtable
+        self._dynsym_section = elffile.get_section_by_name('.dynsym')
+        self._ldynsym_section = elffile.get_section_by_name('.SUNW_ldynsym')
+        self._num_local_symbols = self._ldynsym_section.num_symbols()
+
+    def num_symbols(self):
+        """ Number of symbols in the table
+        """
+        return self['sh_size'] // self['sh_entsize']
+
+    def get_symbol_index(self, n):
+        """ Get the index of the symbol located at position #n in the sorted
+            index section.
+            The index returned is an index in the symbols table composed by the
+            concatenation of the .SUNW_ldynsym and the .dynsym symbol tables
+        """
+        # Grab the symbol's entry from the stream
+        entry_offset = self['sh_offset'] + n * self['sh_entsize']
+        entry = struct_parse(
+            self.elfstructs.Elf_Sunw_SortIndex,
+            self.stream,
+            stream_pos=entry_offset)
+
+        return entry['ndx']
+
+    def get_symbol(self, n):
+        """ Get the symbol located at position #n in the sorted index section
+        """
+        index = self.get_symbol_index(n)
+
+        if index < self._num_local_symbols:
+            symbol = self._ldynsym_section.get_symbol(index)
+        else:
+            symbol = self._dynsym_section.get_symbol(
+                index - self._num_local_symbols)
+
+        return symbol
+
+    def find_symbol(self, addr):
+        """ Get the symbol located at address addr using a binary search
+            algorithm
+        """
+        low = 0
+        high = self.num_symbols()
+        while low < high:
+            middle = (low + high) // 2
+            symbol = self.get_symbol(middle)
+            if symbol['st_value'] < addr:
+                low = middle + 1
+            elif symbol['st_value'] > addr:
+                high = middle
+            else:
+                return symbol
+
+        return None
+
+    def iter_symbols(self):
+        """ Yield all the symbols referenced in the sort section
+        """
+        for i in range(self.num_symbols()):
+            yield self.get_symbol(i)
