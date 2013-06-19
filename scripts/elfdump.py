@@ -370,7 +370,7 @@ def main(stream=None):
     optparser = OptionParser(
         usage='usage: %prog [options] <elf-file>',
         description=SCRIPT_DESCRIPTION,
-        add_help_option=False,  # -h is a real option of readelf
+        add_help_option=False,  # -h is a real option of elfdump
         prog='elfdump.py',
         version=VERSION_STRING)
     optparser.add_option('--help',
@@ -398,23 +398,23 @@ def main(stream=None):
 
     with open(args[0], 'rb') as file:
         try:
-            readelf = Elfdump(file, stream or sys.stdout)
+            elfdump = Elfdump(file, stream or sys.stdout)
             if options.show_version:
-                readelf.display_version_tables()
+                elfdump.display_version_tables()
             if options.show_symbols:
-                readelf.display_symbol_tables()
+                elfdump.display_symbol_tables()
             if options.show_syminfo:
-                readelf.display_syminfo_table()
+                elfdump.display_syminfo_table()
             if options.show_sortedsymbols:
-                readelf.display_sort_index_sections()
+                elfdump.display_sort_index_sections()
         except ELFError as ex:
             sys.stderr.write('ELF error: %s\n' % ex)
             sys.exit(1)
 
 
 def profile_main():
-    # Run 'main' redirecting its output to readelfout.txt
-    # Saves profiling information in readelf.profile
+    # Run 'main' redirecting its output to elfdumpout.txt
+    # Saves profiling information in elfdump.profile
     PROFFILE = 'elfdump.profile'
     import cProfile
     cProfile.run('main(open("elfdumpout.txt", "w"))', PROFFILE)
