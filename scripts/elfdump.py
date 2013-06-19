@@ -93,16 +93,28 @@ class Elfdump(object):
         self.elffile = ELFFile(file)
         self.output = output
 
+    def _find_section(self, section_type):
+        """ Find the first section of the given class in the elf file
+        """
+        for section in self.elffile.iter_sections():
+            if isinstance(section, section_type):
+                return section
+        return None
+
+    def _find_sections(self, section_type):
+        """ Find all the section of the given class in the elf file
+        """
+        sections = []
+        for section in self.elffile.iter_sections():
+            if isinstance(section, section_type):
+                sections.append(section)
+        return sections
+
     def display_version_tables(self):
         """ Display the SUNW verneed and verdef tables contained in the file
         """
-        verneed_section = None
-        verdef_section = None
-        for section in self.elffile.iter_sections():
-            if isinstance(section, GNUVerNeedSection):
-                verneed_section = section
-            elif isinstance(section, GNUVerDefSection):
-                verdef_section = section
+        verneed_section = self._find_section(GNUVerNeedSection)
+        verdef_section = self._find_section(GNUVerDefSection)
 
         # Version definition section
         if verdef_section:
@@ -178,31 +190,28 @@ class Elfdump(object):
     def display_syminfo_table(self):
         """ Display the SUNW syminfo tables contained in the file
         """
-        syminfo_section = None
-        for section in self.elffile.iter_sections():
-            if isinstance(section, SUNWSyminfoTableSection):
-                syminfo_section = section
-                break
+        syminfo_section = self._find_section(SUNWSyminfoTableSection)
 
         if syminfo_section:
             # The symbol table section pointed to in sh_link
             dyntable = self.elffile.get_section_by_name(b'.dynamic')
 
-            if section['sh_entsize'] == 0:
+            if syminfo_section['sh_entsize'] == 0:
                 self._emitline(
                     "\nSymbol table '%s' has a sh_entsize of zero!" %
-                    (bytes2str(section.name)))
+                    (bytes2str(syminfo_section.name)))
                 return
 
             # The symbol table section pointed to in sh_link
-            symtable = self.elffile.get_section(section['sh_link'])
+            symtable = self.elffile.get_section(syminfo_section['sh_link'])
 
-            self._emitline("\nSyminfo Section:  %s" % bytes2str(section.name))
+            self._emitline("\nSyminfo Section:  %s" %
+                           bytes2str(syminfo_section.name))
             self._emitline(
                 '     index  flags            bound to                 symbol')
 
-            for nsym, syminfo in enumerate(section.iter_symbols(), start=1):
-
+            for nsym, syminfo in enumerate(syminfo_section.iter_symbols(),
+                                           start=1):
                 if not (syminfo['si_flags'] or syminfo['si_boundto']):
                     continue
 
@@ -228,70 +237,78 @@ class Elfdump(object):
                     boundto,
                     bytes2str(syminfo.name)))
 
+    def _emit_symbol(self, index, symbol, version_index):
+        """
+        """
+        if self.elffile.elfclass == 32:
+            symbol_entry_format = ('%10.10s  0x%8.8x 0x%8.8x'
+                                   '  %4s %4s %2s %4s %-14.14s %s')
+        else:
+            symbol_entry_format = ('%10.10s  0x%16.16x 0x%16.16x'
+                                   '  %4s %4s %2s %4s %-14.14s %s')
+
+        index_str = '[%i]' % index
+
+        shndx = symbol['st_shndx']
+        if isinstance(shndx, str):
+            shndx = _describe_symbol_shndx(shndx)
+        else:
+            shndx = bytes2str(self.elffile.get_section(shndx).name)
+
+        if version_index == 'VER_NDX_LOCAL':
+            version_index = 0
+        elif version_index == 'VER_NDX_GLOBAL':
+            version_index = 1
+
+        self._emitline(symbol_entry_format % (
+            index_str, symbol['st_value'], symbol['st_size'],
+            _describe_symbol_type(symbol['st_info']['type']),
+            _describe_symbol_bind(symbol['st_info']['bind']),
+            _describe_symbol_visibility(symbol['st_other']['visibility']),
+            version_index, shndx, bytes2str(symbol.name)))
+
     def display_symbol_tables(self):
         """ Display the symbol tables contained in the file
         """
+        symbol_tables = self._find_sections(SymbolTableSection)
+
+        if not symbol_tables:
+            return
 
         # we first look for the versym section to be able to display
         # version index for the associated symbol table
-        versym_section = None
-        for section in self.elffile.iter_sections():
-            if isinstance(section, GNUVerSymSection):
-                versym_section = section
-                linked_section = self.elffile.get_section(section['sh_link'])
-                break
+        versym_section = self._find_section(GNUVerSymSection)
+        if versym_section:
+            linked_section = self.elffile.get_section(
+                versym_section['sh_link'])
 
-        for section in self.elffile.iter_sections():
-            if isinstance(section, SymbolTableSection):
+        for section in symbol_tables:
 
-                if section['sh_entsize'] == 0:
-                    self._emitline(
-                        "\nSymbol table '%s' has a sh_entsize of zero!" % (
-                        bytes2str(section.name)))
-                    return
-
-                # we only print symbol version index if the versym section
-                # exists and if it refers to the current section
-                versioning = (versym_section and section == linked_section)
-
+            if section['sh_entsize'] == 0:
                 self._emitline(
-                    "\nSymbol Table Section:  %s" % bytes2str(section.name))
-                self._emitline(
-                    'index    value      size      type bind oth ver shndx'
-                    '          name')
+                    "\nSymbol table '%s' has a sh_entsize of zero!" % (
+                    bytes2str(section.name)))
+                return
 
-                if self.elffile.elfclass == 32:
-                    symbol_entry_format = ('%10.10s  0x%8.8x 0x%8.8x'
-                                           '  %4s %4s %2s %4s %-14.14s %s')
+            # we only print symbol version index if the versym section
+            # exists and if it refers to the current section
+            versioning = (versym_section and section == linked_section)
+
+            self._emitline(
+                "\nSymbol Table Section:  %s" % bytes2str(section.name))
+            self._emitline(
+                'index    value      size      type bind oth ver shndx'
+                '          name')
+
+            for nsym, symbol in enumerate(section.iter_symbols()):
+                if versioning:
+                    version_index = versym_section.get_symbol(nsym)['ndx']
                 else:
-                    symbol_entry_format = ('%10.10s  0x%16.16x 0x%16.16x'
-                                           '  %4s %4s %2s %4s %-14.14s %s')
+                    version_index = 0
 
-                for nsym, symbol in enumerate(section.iter_symbols()):
-                    index_str = '[%i]' % nsym
+                self._emit_symbol(nsym, symbol, version_index)
 
-                    shndx = symbol['st_shndx']
-                    if isinstance(shndx, str):
-                        shndx = _describe_symbol_shndx(shndx)
-                    else:
-                        shndx = bytes2str(self.elffile.get_section(shndx).name)
 
-                    if versioning:
-                        version_index = versym_section.get_symbol(nsym)['ndx']
-                        if version_index == 'VER_NDX_LOCAL':
-                            version_index = 0
-                        elif version_index == 'VER_NDX_GLOBAL':
-                            version_index = 1
-                    else:
-                        version_index = 0
-
-                    self._emitline(symbol_entry_format % (
-                        index_str, symbol['st_value'], symbol['st_size'],
-                        _describe_symbol_type(symbol['st_info']['type']),
-                        _describe_symbol_bind(symbol['st_info']['bind']),
-                        _describe_symbol_visibility(
-                            symbol['st_other']['visibility']),
-                        version_index, shndx, bytes2str(symbol.name)))
 
     def _emit(self, s=''):
         """ Emit an object to output
